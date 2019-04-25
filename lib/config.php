@@ -25,4 +25,4 @@
 	define('ABBR','cms');
 	define('UPLOADDIR',dirname(__FILE__).'/../uploads/');
 	define('IMAGESDIR',dirname(__FILE__).'/../images/');
-	define('FOLDER','/cms/');
+	define('FOLDER','/');
