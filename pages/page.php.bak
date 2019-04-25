@@ -1,0 +1,61 @@
+<?php $view = $App->setPageView();?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+		<?php include 'page_header.php';?>
+		<style>
+			html,body{
+				height: 100%;
+			}
+			._wrapper {
+				min-height: 100%;
+				position: relative;
+				height:100%;
+			}
+			footer {
+				width: 100%;
+				position: absolute;
+				bottom: 0;
+				left: 0;
+			}
+		</style>
+	</head>
+	<body class="individual">
+	  <div class="_wrapper">
+		<?php $view->echoPart('layout','navigation');?>
+		<header><?php $view->echoPart('layout','header');?></header>
+		<main>
+			<div class="container-fluid">
+				<?php 
+					if( !$view->hasContent() ){ 
+						echo $view->show404();
+					}else{ ?>
+						<div class="row">
+							<div class="col-md-8">
+								<div class="content">
+									<?php $view->echoPart('content','content');?>
+								</div>
+							</div>
+							<div class=" col-md-4">
+								<div class="sidebar">
+									<div class="right-menu"><?php $view->echoPart('content','page_links');?></div>
+									<div class="right-menu"><?php $view->echoPart('content','custom_sidebar');?></div>
+								</div>
+							</div>	
+							<div class="clearfix"></div>
+						</div>
+					<div class="bottom">
+						<?php if( $view->hasBottom() ){ ?>
+							<?php $view->echoPart('content','custom_bottom');?>
+						<?php }else{ ?>
+							<?php $view->echoPart('layout','bottom');?>
+						<?php } ?>
+					</div>
+				<?php } ?>
+			</div>
+		</main>
+		<footer><?php $view->echoPart('layout','footer');?></footer>
+	  </div>
+		<?php include 'page_scripts.php';?>
+	</body>
+</html>

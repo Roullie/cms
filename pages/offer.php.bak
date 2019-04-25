@@ -1,0 +1,131 @@
+<?php 
+	$view = $App->setPageView();
+	$pages = $App->getPagesByHome();
+	$pgntion 	= $App->db->pgntion;
+	$offers = $App->db->SelectOffers();
+	$sections = $App->db->SelectOffer_sections();
+?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+		<?php include 'page_header.php';?>
+		<style></style>
+	</head>
+	<?php
+		function createOfferPopUp( $data ){
+			$ul = "";
+			return "<div class='popData'>" 
+					."<div class='l-updated'>Last updated: " .date('m/Y',strtotime($data['updated'])) . "</div>"
+					."<div class='l-title'>" .$data['title'] . "</div>"
+					."<div class='l-topic_in'>" . ( !empty($data['topic_in']) ? $data['topic_in'] : "" ). "</div>"
+					."<div class='l-time'>" . ( !empty($data['time']) ? "<i class='fa fa-clock-o'></i>&nbsp;".$data['time'] : "" ). "</div>"
+					."<div class='l-hover_tagline'>" .$data['hover_tagline'] . "</div>"
+					."<ul class='l-bullet'>" 
+						. ( !empty($data['bullet1']) ? "<li class='l-bullet-item'>" .$data['bullet1'] . "</li>" : "" )
+						. ( !empty($data['bullet2']) ? "<li class='l-bullet-item'>" .$data['bullet2'] . "</li>" : "" )
+						. ( !empty($data['bullet3']) ? "<li class='l-bullet-item'>" .$data['bullet3'] . "</li>" : "" )
+					. "</ul>"
+					."<div class='l-button-play'><a class='pop-button-play btn-red-cts'>Play Video</a></div>"
+				.'</div>';
+		}
+	?>
+	<body class="offer">
+		<?php $view->echoPart('layout','navigation');?>
+		<header>
+			<?php $view->echoPart('layout','header');?>
+			<?php $view->echoPart('layout','offer_banner');?>
+		</header>
+		<main>
+			<div class="container-fluid">				
+				<?php foreach($offers as $offer){?>
+					<div class="col-md-2 col-xs-6 oi-containers">
+						<a class="oi-link" data-container="body" data-toggle="popover" data-placement="auto left" data-html="true" 
+							data-content="<?=createOfferPopUp($offer);?>">
+							<div class="offer-item">
+								<div class="oi-image" style="background-image:url(<?=FOLDER?>uploads/<?=$offer['image']?>);"></div>
+								<div class="offer-item-info">
+									<div class="oi-title"><h3><?=$offer['title']?></h3></div>
+									<div class="oi-tagline"><?=$offer['tagline']?></div>
+									<div class="oi-prices">
+										<span class="oi-bp">&euro;<?=$offer['before_price']?></span>
+										<span class="oi-ap">&euro;<?=$offer['after_price']?></span>
+									</div>
+								</div>
+							</div>
+							<div class="oi-info-hover"></div>
+						</a>
+					</div>
+				<?php } ?>				
+			</div>
+			<!-- sections -->
+			<?php foreach($sections as $key => $section){?>
+				<?=$section['html'];?>
+			<?php } ?>
+			
+			
+		</main>
+		
+		<div id="signUpModal" class="modal fade" role="dialog">
+			<div class="modal-dialog">
+				<!-- Modal content-->
+				<div class="modal-content">
+					<div class="modal-header modal-header-primary">
+						<button type="button" class="close" data-dismiss="modal">&times;</button>
+						<div class="modal-title">Sign Up and Start Learning!</div>
+					</div>
+					<div class="modal-body">
+						<form id="signUpForm">
+							<div class="form-group email-input">
+								<input class="form-control" name="Sign[Email]" type="text" placeholder="Email" autocomplete="false" disabled  />
+							</div>
+							<div class="form-group password-input">
+								<input class="form-control" name="Sign[Pass]" type="password" placeholder="Password"  autocomplete="false" disabled  />
+							</div>
+							<label class="rcv_email">
+								<input type="checkbox" />
+								<span>Yes! I want to get the most out of Udemy by receiving emails with exclusive deals, personal recommendations and learning tips!</span>
+								<div class="clearfix"></div>
+							</label>
+							<div class='sign-up-button-cont'><a class='btn-red-cts'>Sign Up</a></div>							
+							<p class="small-text text-center">By signing up, you agree to our <a href="#">Terms of Use</a> and <a href="#">Privacy Policy</a>.</p>						
+						</form>
+					</div>
+					<div class="modal-footer">
+						<div class="text-center">
+							Already have an account? <a href="#">Log In</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<footer><?php $view->echoPart('layout','footer');?></footer>
+		<?php include 'page_scripts.php';?>
+	</body>
+</html>
+
+<script>
+	$(".oi-link").popover({ trigger: "manual" , html: true, animation:false})
+		.on("mouseenter", function () {
+			var _this = this;
+			$(this).popover("show");
+			$(".popover").on("mouseleave", function () {
+				$(_this).popover('hide');
+			});
+		}).on("mouseleave", function () {
+			var _this = this;
+			setTimeout(function () {
+				if (!$(".popover:hover").length) {
+					$(_this).popover("hide");
+				}
+			}, 100);
+	});
+	$('body').on('click','a.pop-button-play , a.oi-link',function(){
+		$(".popover").popover("hide");
+		$('#signUpModal').modal('show');
+	});
+	setTimeout(function(){
+		$('[disabled]').prop('disabled',false);
+	},300);
+	
+</script>

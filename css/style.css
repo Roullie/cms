@@ -1,0 +1,173 @@
+@import url(https://fonts.googleapis.com/css?family=Poppins:400,700|Open+Sans|Google+Sans);
+.col-center{
+	float:none;
+	margin:0 auto;
+}
+.unbordered:active,
+.unbordered:focus,
+.unbordered{
+	border:none;
+	cursor:pointer;
+	width:100%;
+	resize:none;
+	padding:10px;
+	box-shadow: none;
+	border-color: none;
+	box-shadow: none;
+	-webkit-box-shadow: none;
+	outline: none;
+}
+.paper{
+	padding: 20px;
+	width:500px;
+	background:#fff;
+	border:1px solid #d4d9de;
+	margin:10px auto;
+	min-height:304px;
+}
+.idea-titile{
+	font-family: 'Poppins', sans-serif;
+	font-size:30px;
+	font-weight:bold;
+		margin: 10px 0 5px 10px;
+}
+#blist ul>li>a{
+	font-family: 'Muli', sans-serif;
+	font-size:14px;
+}
+#blist ul>li>a>i{
+	font-size: 10px;
+	color: #d2d2d2;
+}
+#blist ul>li:hover{
+background: #fcfcfc;
+}
+.card{
+	padding:20px;
+	width:500px;
+	background:#fff;
+	border:1px solid #d4d9de;
+	margin-bottom:10px;
+	min-height:304px;
+	position:relative;
+}
+input[name="Card[topic]"]{
+	font-family: 'Poppins', sans-serif;
+	font-size:30px;
+	font-weight:bold;
+}
+textarea[name="Card[thought]"]{
+	font-family: 'Open Sans', sans-serif;
+	font-size:18px;
+}
+#stackLinks{
+	padding: 3px ;
+	margin:0 auto;
+	text-align:right;
+	position:fixed;
+	bottom:10px;
+	right:10px;
+}
+#ideaLinks{
+	padding: 3px ;
+	margin:0 auto;
+	position:absolute;
+	bottom: 2px;
+	left: 10px;
+	font-size: 18px;
+}
+.card .card-option{
+	display:none;
+	position:absolute;
+	bottom:0;
+	text-align:right;
+	right:5px;
+}
+.card .card-option a{
+	color:#e6e6e6;
+}
+.card:hover .card-option{
+	display:block;
+}
+div._topic{
+	font-family: 'Poppins', sans-serif;
+	font-size:30px;
+	font-weight:bold;
+	padding:10px;
+}
+div._thought{
+	font-family: 'Open Sans', sans-serif;
+	font-size:18px;
+	padding:10px;
+}
+#stackLinks{
+	padding: 3px ;
+	font-size:10px;
+	margin:0 auto;
+	text-align:right;
+}
+#wrapper{
+	
+}
+#arrangeCards{
+	width:500px;
+	margin:10px auto;
+	position: relative;
+	left: 0%;
+	top: 0%;
+	transform: translate(0%, 0%);
+	transform-origin: center center;
+}
+#scaleButtons{
+	margin:10px auto;
+	text-align:center;
+	position:fixed;
+	bottom:10px;
+	right:20px;
+}
+#ideaLinks{
+	padding: 3px ;
+	margin:0 auto;
+	position:absolute;
+	bottom: 2px;
+	left: 10px;
+	font-size: 18px;
+	position:fixed;
+}
+div.archives{
+	position: fixed;
+    bottom: 5px;
+    right: 10px;
+}
+#archivesModal .list-group-item{
+	border-left: 0;
+    border-right: 0;
+    border-color: #f5f5f5;
+}
+/* Portrait */
+@media (max-height: 500px){
+   .card,
+   .paper{
+		margin:1em auto 0 auto !important;
+	}
+}
+@media (max-width: 480px){
+	#arrangeCards,
+	.paper,
+	.card,
+	div.w-count{
+		width:100%;
+	}
+	div.w-count{
+		width:100% !important;
+	}
+	#scaleButtons{
+		bottom: 5px;
+		right: 20px;
+		z-index: 10;
+		margin:0;
+	}
+	.card .card-option{
+		display:block;
+	}
+}

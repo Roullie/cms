@@ -1,0 +1,588 @@
+<?php include '../lib/common.php';?>
+<?php 
+	$App->redirecIfNotLogged();
+	$App->Part->set();
+	$info = $App->Part->get();
+	
+	$cats = $App->db->columns(array('id','name'))->SelectCategories();
+	
+	$pagesCount = 0;
+	$nodes = array(
+		array(
+			'text' => 'Home',
+			'id' => "TopPage",
+			'type' => 'top',
+			'nofollow' => 0,
+			'url' => $App->home
+		)
+	);
+	$connections = array();
+	$filtered = array_values(array_filter(
+		$App->getLinksFromHTML($info['navigation'].$info['footer'],$App->home),
+		function($nf){
+			return !empty($nf['text']);
+	}));
+	$navFooterLinks = array_map(function($nf ,$k){
+		$nf['id'] = $k + 1;
+		$nf['url'] = $nf['href'];
+		return $nf;
+	},$filtered, array_keys($filtered));	
+	
+	$tmpNavFooterLinks = array();
+	foreach( $navFooterLinks as $nlink ){
+		$urlToInfo = $App->urlIsPage($nlink['url']);				
+		$urlToInfoCategory = $App->urlIsCategory($nlink['url']);
+		if( !$urlToInfo && !$urlToInfoCategory ){
+			$tmpNavFooterLinks[] = $nlink;
+		}		
+	}
+	
+	foreach( $tmpNavFooterLinks as $key => $links ){
+		
+		$nodes[] = array(
+			'text' => $links['text'],
+			'id' => "_nv".$links['id'],
+			'url' => $links['url'],
+			'type' => 'navfoot',
+			'nofollow' => in_array("nofollow",explode(" ",$links['rel']))
+		);
+		$connections[] = array(
+			'source' => "TopPage",
+			'target' => "_nv".$links['id'],
+			'type' => 'topToNavfoot',
+			'text' => $links['text']
+		);
+	}
+	
+	
+	foreach( $cats as $key => $cat ){
+		
+		$nodes[] = array(
+			'text' => $cat['name'],
+			'id' => "_c".$cat['id'],
+			'type' => 'category',
+			'nofollow' => 0,
+			'url' => $App->home . 'c/' . $cat['name']
+		);
+		$connections[] = array(
+			'source' => "TopPage",
+			'target' => "_c".$cat['id'],
+			'type' => 'topToCat',
+			'text' => $cat['name']
+		);
+		
+		foreach( $tmpNavFooterLinks as $links ){
+			
+			$connections[] = array(
+				'source' => "_c".$cat['id'],
+				'target' => "_nv".$links['id'],
+				'type' => 'catToNavfoot',
+				'text' => $links['text']
+			);
+		}
+		
+		$cats[$key]['pages'] = $App->db->columns(array('id','title','url'))->SelectPages(array(
+			'category_id' => $cat['id']
+		));
+		
+		foreach( $cats[$key]['pages'] as $pkey => $page ){
+			
+			$pagesCount++;
+			
+			$nodes[] = array(
+				'text' => $page['title'],
+				'id' => "_p".$page['id'],
+				'url' => $App->home.$page['url'],
+				'type' => 'page',
+				'nofollow' => 0
+			);
+			
+			$connections[] = array(
+				'source' => "_c".$cat['id'],
+				'target' => "_p".$page['id'],
+				'type' => 'catToPage',
+				'text' => $page['title']
+			);
+			
+			foreach( $tmpNavFooterLinks as $nkey => $links ){
+				$connections[] = array(
+					'source' => "_p".$page['id'],
+					'target' => "_nv".$links['id'],
+					'type' => 'pageToNavfoot',
+					'text' => $links['text']
+				);
+			}
+			
+			$cats[$key]['pages'][$pkey]['links'] = $App->db->columns(array('page_id','page_id_to','url','url_to','text','nofollow','category_id'))->SelectStructures(array(
+				'page_id' => $page['id']
+			));
+			
+			foreach( $cats[$key]['pages'][$pkey]['links'] as $links ){
+				if( $links['page_id_to'] == 0 ){
+					$connections[] = array(
+						'source' => "_p".$links['page_id'],
+						'target' => "_c".$links['category_id'],
+						'type' => 'pageToCategory',
+						'text' => $links['text']
+					);
+				}else{
+					$connections[] = array(
+						'source' => "_p".$links['page_id'],
+						'target' => "_p".$links['page_id_to'],
+						'type' => 'pageToPage',
+						'text' => $links['text']
+					);
+				}
+				
+			}
+			
+		}
+		
+	}
+	
+	foreach( $nodes as $key => $node ){
+		foreach($navFooterLinks as $nflink){
+			if( strtolower($node['url']) == strtolower($nflink['url']) && in_array("nofollow",explode(" ",$nflink['rel'])) ){
+				$nodes[$key]['nofollow'] = 1;
+			}
+		}
+	}
+	
+?>
+<?php include 'parts/header.php';?>
+	<style>
+		div.gridContainerTop{
+			overflow: auto;
+		}
+		div.gridContainer{
+			position:relative;
+			width:100%;
+			height:600px;
+			    overflow: auto;
+		}
+		div.gridContainer svg{
+			z-index:1040 !important;
+		}
+		div.nodes{
+			position:absolute;
+			padding: 10px;
+			border: 1px solid #ccc;
+			background: #fff;
+			z-index:1060;
+			width:140px;
+			text-align:center;
+			font-size:13px;
+			opacity:0;
+		}
+		div.connectorLabel {
+			font-size:11px;
+			z-index:1050;
+			background: #fff;
+			display:none !important;
+		}
+		div.connectorLabel.showLabel{
+			display:block !important;
+		}
+		div.map-options{
+			padding:5px;
+		}
+		div.map-options label{
+			font-weight:normal;
+		}
+		div.map-options label input[type=checkbox]{
+			position:relative;
+			top:1px;
+		}
+	</style>
+		<div class="container-fluid">
+		  <div class="row">
+			<div class="col-sm-3 col-lg-2">
+				<?php include 'parts/nav.php';?>				
+			</div>
+			<div class="col-sm-9 col-lg-10">
+				<div class="map-options">
+					<label>
+						<input type="checkbox" class="hideNoFollow"> Hide nofollow
+					</label>
+				</div>
+				<div class="gridContainerTop">					
+					<div class="gridContainer">
+						<div id="TopPage" class="nodes">
+							<div class="nodeText"><a href="<?=$App->home?>" target="_blank">Home</a></div>
+						</div>
+						<?php 
+							$top = 70;
+							$left = 0;
+							$highest = $top;
+						?>
+						<?php foreach($cats as $key => $cat){?>
+							<div id="<?="_c".$cat['id']?>" class="nodes" style="top:<?=$top?>px;left:<?=$left?>px;">
+								<div class="nodeText"><a href="<?=$App->home.'c/'.$cat['name']?>" target="_blank"><?=$cat['name']?></a></div>
+							</div>							
+							<?php foreach($cat['pages'] as $page){?>
+								<?php 
+									$top += 70;
+									$left += 30;
+								?>
+								<div id="<?="_p".$page['id']?>" class="nodes" style="top:<?=$top?>px;left:<?=$left?>px;">
+									<div class="nodeText"><a href="<?=$App->home.$page['url']?>" target="_blank"><?=$page['title']?></a></div>
+								</div>
+							<?php } ?>
+							<?php 
+								if( $highest < $top ){
+									$highest = $top;
+								}
+								$top = 70;
+								$left = ( 140 * ($key + 1) ) * 2;
+							?>
+						<?php } ?>
+						<?php 
+							$top = $highest + 70;
+							$left = 0;
+						?>
+						<?php foreach($tmpNavFooterLinks as $key => $nlink){?>						
+							<div id="<?="_nv".$nlink['id']?>" class="nodes" style="top:<?=$top?>px;left:<?=$left?>px;">
+								<div class="nodeText"><a href="<?=$nlink['url']?>" target="_blank"><?=$nlink['text']?></a></div>
+							</div>
+							<?php 
+								$left = ( 140 * ($key + 1) ) * 2;
+							?>
+						<? } ?>
+					</div>
+				</div>
+				
+			</div>
+		  </div>
+		</div>
+<?php include 'parts/footer.php';?>
+<script type="text/javascript">
+
+	var nodes = <?=json_encode($nodes)?>;
+	var connections = <?=json_encode($connections)?>;
+	var pagesCount = <?=$pagesCount?>;
+	var catCount = <?=count($cats)?>;
+	$('#TopPage').css('left',function(){
+		return ($('.gridContainer').width() / 2) - ($(this).width() / 2);
+	});
+	$('div.nodes').css('opacity',1);
+	var plumbInstance = jsPlumb.getInstance();
+	plumbInstance.ready(function() {
+		plumbInstance.importDefaults({
+			//Anchors: [ "TopCenter" ],
+			Overlays: [
+				[ "Arrow", { 
+					location:1,
+					id:"arrow",
+					length:10,
+					width:15,
+					foldback:0.8
+				} ]
+			]
+		});
+	}); 
+	var app = {
+		top_largest : 0,
+		top : 215,
+		left: 0
+	};
+	var nodePages = nodes.filter(function(np){
+		return np.type == 'page';
+	});
+	for( var i=0; i < nodePages.length; i++ ){
+		app.left += 30;
+		createBox(nodePages[i]);
+		var mod = pagesCount < catCount ? catCount : Math.ceil(pagesCount/catCount);	
+		if( i % mod == 0 && i != 0){
+			app.top = 215;
+			app.left += catCount * ( 50 ) + 10;
+		}
+	}
+	
+	var navFoots = nodes.filter(function(n){
+		return n.type == 'navfoot';
+	});
+	app.left = 0;
+	var t = app.top_largest + 300;
+	for( var i=0; i < navFoots.length; i++ ){
+		app.top = t;		
+		createBox(navFoots[i]);
+		app.left += ( $('.gridContainerTop').width() / 4) * 2;		
+		var mod = pagesCount < catCount ? catCount : Math.ceil(pagesCount/catCount);		
+		if( i % mod == 0 && i != 0){
+			t += 200;
+			app.left = 40;
+		}
+	}
+	
+	
+	var catPages = nodes.filter(function(np){
+		return np.type == 'category';
+	});
+	app.left = 0;
+	for( var i=0; i < catPages.length; i++ ){
+		app.top = 150;		
+		createBox(catPages[i]);
+		app.left += catCount * ( 140 / 2 ) + 10;
+	}
+	
+	var topPages = nodes.filter(function(np){
+		return np.type == 'top';
+	});
+	for( var i=0; i < topPages.length; i++ ){
+		app.top = 50;
+		app.left = ( $('.gridContainerTop').width() / 2 ) - ( 140 );
+		createBox(topPages[i]);
+	}
+	
+	var element = $(
+		'<div id="marginBots" class="nodes" style="opacity:0;top:'+(t+100)+'px;left:'+($('.gridContainer').width()+800)+'px">'+
+			'<div class="nodeText"></div>'+
+		'</div>'
+	);
+	//$('.gridContainer').append(element);
+	
+	for(var x=0;x< connections.length; x++){
+		
+		var c = connections[x].type == 'pageToPage' ? "red" : "#333";
+		
+		var createdConn = plumbInstance.connect({
+		  source: $("#" + connections[x].source ),
+		  target: $("#" + connections[x].target ),
+		  //uuids:[connections[x].source + "_BottomEndpoint", connections[x].target + "_TopEndpoint"],
+		  //paintStyle:{ fill:"white", outlineStroke:"grey", strokeWidth:2,radius:1 },
+		  anchors:[ "Bottom","Top" ]
+		},
+		{
+			endpoint: 'Blank',
+			connector: ["Straight",{alwaysRespectStubs:true,cornerRadius:1}],
+			paintStyle: { stroke:c ,strokeWidth:2 },
+			overlays: [
+				[ 'Label', { label: connections[x].text, cssClass: 'connectorLabel s'+connections[x].source+'t'+connections[x].target } ]
+			],
+		});
+		
+		createdConn.bind("mouseover", function(conn) {
+			console.log(conn);
+			$('.connectorLabel.s'+conn.sourceId+'t'+conn.targetId).addClass('showLabel');
+		}); 
+
+		createdConn.bind("mouseout", function(conn) {
+			$('.connectorLabel.s'+conn.sourceId+'t'+conn.targetId).removeClass('showLabel');
+		});
+		
+	}
+	
+	
+	function createBox( node ){
+		
+		//return false;
+		
+		var id = node.id;
+		var top = app.top;
+		var text = node.text;
+		left = 50;
+		
+		if( top > app.top_largest ){
+			app.top_largest = top;
+		}
+		
+		//if( node.type == 'page' ){
+			text = '<a href="'+node.url+'" target="_blank">'+text+'</a>';
+		//}
+		
+		var element = $(
+			'<div id="'+id+'" class="nodes" style="top:'+(top)+'px;left:'+(app.left)+'px">'+
+				'<div class="nodeText">'+text+'</div>'+
+			'</div>'
+		);
+		
+		//$('.gridContainer').append(element);
+		
+		app.top += ( $('#' + id).height() + 50);
+		
+		plumbInstance.draggable(id, {
+			//containment:"parent",
+			grid:[10,10],
+			stop: function(e){
+				
+				
+			}
+		});	
+		/*
+		plumbInstance.addEndpoint(id, { 
+			anchors:["Left"],
+			cssClass : 'LeftEndpoint',
+			uuid: id + "_LeftEndpoint"				
+		}, {
+			paintStyle:{ fill:"white", outlineStroke:"grey", strokeWidth:1,radius:1 },
+			isSource:false, // draggable from point (this is the from)
+			isTarget:false, // draggable end point (this is the to)
+			endpoint: "Dot",
+			maxConnections: -1,
+			dropOptions:{ 
+				drop:function(e, ui) { 
+				} 
+			}
+		}); 
+		
+		plumbInstance.addEndpoint(id, { 
+			anchors:["Top"],
+			cssClass : 'TopEndpoint',
+			uuid: id + "_TopEndpoint"
+		}, {
+			paintStyle:{ fill:"white", outlineStroke:"grey", strokeWidth:1,radius:1 },
+			isSource:false, // draggable from point (this is the from)
+			isTarget:false, // draggable end point (this is the to)
+			endpoint: "Dot",
+			maxConnections: -1,
+			dropOptions:{ 
+				drop:function(e, ui) { 
+				} 
+			}
+		}); 
+		
+		plumbInstance.addEndpoint(id, { 
+			anchors:["Right"],
+			cssClass : 'RightEndpoint',
+			uuid: id + "_RightEndpoint"
+		}, {
+			//paintStyle:{ fill:"red", stroke:"red", strokeWidth:1,radius:4 },
+			paintStyle:{ fill:"white", outlineStroke:"grey", strokeWidth:1,radius:1 },
+			isSource:false, // draggable from point (this is the from)
+			isTarget:false, // draggable end point (this is the to)
+			connector: ["Flowchart",{
+				alwaysRespectStubs:true,
+				cornerRadius:5
+			}],
+			connectorStyle: { stroke:"#333", strokeWidth:2 },
+			endpoint: "Dot",					
+			maxConnections: -1
+		}); 
+		
+		plumbInstance.addEndpoint(id, { 
+			anchors:["Bottom"],
+			cssClass : 'BottomEndpoint',
+			uuid: id + "_BottomEndpoint"
+		}, {
+			//paintStyle:{ fill:"green", stroke:"green", strokeWidth:1,radius:4 },
+			paintStyle:{ fill:"white", outlineStroke:"grey", strokeWidth:1,radius:1 },
+			isSource:false, // draggable from point (this is the from)
+			isTarget:false, // draggable end point (this is the to)
+			connector: ["Flowchart",{
+				alwaysRespectStubs:true,
+				cornerRadius:5
+			}],
+			connectorStyle: { stroke:"#333", strokeWidth:1 },
+			endpoint: "Dot",
+			dropOptions:{ 
+				drop:function(e, ui) { 
+					//alert('drop!'); 
+				} 
+			},
+			maxConnections: -1
+		});
+		
+			*/	
+		
+		
+	}
+	$('.gridContainer').height( ( $(window).height() - 37 ) + "px" );
+	
+	$('.hideNoFollow').on('change',function(){
+		var ito = $(this);
+		var noFollows = nodes.filter(function(n){
+			return n.nofollow;
+		});
+		var allConns = plumbInstance.getAllConnections();
+		for(var c=0;c<allConns.length;c++){
+		   allConns[c].setVisible(true);
+		}
+		var show = !ito.is(':checked');
+		for( var i=0; i < noFollows.length; i++ ){
+			var conns = plumbInstance.getConnections({target:noFollows[i].id});
+			for(var c=0;c<conns.length;c++){
+			   conns[c].setVisible(show);
+			}
+			conns = plumbInstance.getConnections({source:noFollows[i].id});
+			for(var c=0;c<conns.length;c++){
+			   conns[c].setVisible(show);
+			}
+		}
+		
+		
+	});
+	
+	$('.nodes').on('mouseover',function(){
+		var ito = $(this);
+		$('.hideNoFollow').prop('checked',false);
+		
+		// hide all conns
+		var allConns = plumbInstance.getAllConnections();
+		$('.nodes').not(ito).hide();
+		for(var c=0;c<allConns.length;c++){
+		   allConns[c].setVisible(false);
+		}
+		var conns = plumbInstance.getConnections({target:ito.attr('id')});		
+		
+		traceTillHome(ito.attr('id'));
+		
+	}).on('mouseout',function(){
+		
+		var allConns = plumbInstance.getAllConnections();
+		for(var c=0;c<allConns.length;c++){
+		   allConns[c].setVisible(true);
+		}
+		$('.nodes').show();
+	});
+	
+	function traceTillHome( id ){
+		if( id == 'TopPage' ){
+			return false;
+		}
+		var conns = plumbInstance.getConnections({target:id});
+		for(var c=0;c<conns.length;c++){
+			conns[c].setVisible(true);
+			$('#'+conns[c].sourceId).show();
+			traceTillHome( conns[c].sourceId );
+		}
+	}
+	
+	var _traces = [];
+	allTraces( 'TopPage' , [] );
+	
+	function allTraces( id , traces ){
+		traces = traces.slice(0);
+		var conns = plumbInstance.getConnections({source:id});
+		if( conns.length > 0 ){
+			var accepted = [];
+			for(var c=0;c<conns.length;c++){
+				if( !in_array( conns[c].targetId , traces ) ){
+					accepted.push(conns[c].targetId);
+				}
+			}
+			if( accepted.length > 0 ){
+				var tmp = traces.slice(0);
+				for(var i=0; i< accepted.length; i++){
+					tmp.push(accepted[i]);
+					allTraces( accepted[i] , tmp )
+				}
+			}else{
+				_traces.push(traces);
+				//return traces;
+			}
+		}else{
+			_traces.push(traces);
+			//return traces;
+		}
+		
+	}
+	
+	function in_array(needle, haystack) {
+		var length = haystack.length;
+		$break = false;
+		for(var i = 0; i < length; i++) {
+			if(haystack[i] == needle) {$break = true;break;}
+		}
+		return $break;
+	}
+</script>
