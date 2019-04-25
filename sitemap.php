@@ -1,5 +1,0 @@
-<?php
-	
-	$sitemaps = $App->sitemaps();
-	
-?>
