@@ -14,10 +14,6 @@
 		'DATABASE' 	=> array(
 			'host'		=> 'localhost',
 			
-			'username' 	=> 'libnik_roullie',
-			'password'	=> '89Fv3jn2sx21k',
-			'dbname'	=> 'libnik_cms',
-			
 			//'username' 	=> 'root',
 			//'password'	=> '',
 			//'dbname'	=> 'libnik_cms',
